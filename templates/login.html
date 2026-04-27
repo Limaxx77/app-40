@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login | 40 Graus</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <div class="brand">
+      <div class="brand-title">40 Graus</div>
+      <div class="brand-sub">Gestão Restaurante</div>
+    </div>
+    <h1>Entrar no sistema</h1>
+    {% with messages=get_flashed_messages(with_categories=true) %}
+      {% for cat,msg in messages %}<div class="flash {{cat}}">{{msg}}</div>{% endfor %}
+    {% endwith %}
+    <form method="post">
+      <label>Usuário</label>
+      <input name="usuario" placeholder="Digite seu usuário" required>
+      <label>Senha</label>
+      <input name="senha" type="password" placeholder="Digite sua senha" required>
+      <button class="btn primary full">Entrar</button>
+    </form>
+  </div>
+</body>
+</html>

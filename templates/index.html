@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>40 Graus | Gestão</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<aside class="sidebar" id="sidebar">
+  <div class="logo"><div class="logo-title">40 Graus</div><div class="logo-sub">Gestão</div></div>
+  <nav>
+    <button class="nav active" data-tab="dashboard">📊 Dashboard</button>
+    <button class="nav" data-tab="salarios">👥 Salários</button>
+    <button class="nav" data-tab="contas">📋 Contas & Boletos <span class="pill">{{ stats.vencendo + stats.atrasadas }}</span></button>
+    <button class="nav" data-tab="scanner">📷 Escanear Boleto</button>
+    <button class="nav" data-tab="relatorios">📈 Relatórios</button>
+    {% if session.role=='admin' %}<button class="nav" data-tab="acessos">🔐 Acessos</button>{% endif %}
+  </nav>
+  <div class="side-foot">{{ session.nome }} · {{ session.role }}<br><a href="{{ url_for('logout') }}">Sair</a></div>
+</aside>
+
+<main class="main">
+  <header class="topbar">
+    <button class="hamb" onclick="toggleMenu()">☰</button>
+    <h1 id="title">Dashboard</h1>
+    <div class="top-actions"><a class="btn secondary" href="{{ url_for('exportar_csv') }}">Exportar CSV</a></div>
+  </header>
+  <section class="content">
+    {% with messages=get_flashed_messages(with_categories=true) %}
+      {% for cat,msg in messages %}<div class="flash {{cat}}">{{msg}}</div>{% endfor %}
+    {% endwith %}
+    {% if stats.vencendo or stats.atrasadas %}<div class="alert">⚠️ {{ stats.atrasadas }} conta(s) atrasada(s) e {{ stats.vencendo }} vencendo nos próximos 7 dias.</div>{% endif %}
+
+    <div class="tab active" id="dashboard">
+      <div class="cards">
+        <div class="card"><span>Folha</span><strong>{{ brl(stats.folha) }}</strong></div>
+        <div class="card danger"><span>Contas pendentes</span><strong>{{ brl(stats.contas_pendentes) }}</strong></div>
+        <div class="card success"><span>Pagas</span><strong>{{ brl(stats.contas_pagas) }}</strong></div>
+        <div class="card"><span>Vencendo</span><strong>{{ stats.vencendo }}</strong></div>
+      </div>
+      <div class="panel"><h2>Próximos vencimentos</h2><div class="table-wrap"><table><tr><th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Status</th></tr>{% for c in contas[:8] %}<tr><td>{{c.descricao}}</td><td>{{brl(c.valor)}}</td><td>{{fmt_date(c.vencimento)}}</td><td><span class="badge">{{c.status}}</span></td></tr>{% else %}<tr><td colspan="4">Nenhuma conta cadastrada.</td></tr>{% endfor %}</table></div></div>
+    </div>
+
+    <div class="tab" id="salarios">
+      <div class="panel"><div class="panel-head"><h2>Salários</h2><button class="btn primary" onclick="novoSalario()">+ Funcionário</button></div><div class="table-wrap"><table><tr><th>Nome</th><th>Cargo</th><th>Salário</th><th>Data</th><th>Status</th><th>Ações</th></tr>{% for s in salarios %}<tr><td>{{s.nome}}</td><td>{{s.cargo}}</td><td>{{brl(s.salario)}}</td><td>{{fmt_date(s.data)}}</td><td><span class="badge">{{s.status}}</span></td><td><button class="mini" onclick="editSalario('{{s.id}}','{{s.nome|e}}','{{s.cargo|e}}','{{s.salario}}','{{s.data}}','{{s.status}}')">Editar</button><a class="mini danger" href="{{ url_for('excluir_salario', id=s.id) }}" onclick="return confirm('Excluir?')">Excluir</a></td></tr>{% else %}<tr><td colspan="6">Nenhum salário cadastrado.</td></tr>{% endfor %}</table></div></div>
+    </div>
+
+    <div class="tab" id="contas">
+      <div class="panel"><div class="panel-head"><h2>Contas & Boletos</h2><button class="btn primary" onclick="novaConta()">+ Conta</button></div><div class="table-wrap"><table><tr><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Ações</th></tr>{% for c in contas %}<tr><td>{{c.descricao}}</td><td>{{c.categoria}}</td><td>{{brl(c.valor)}}</td><td>{{fmt_date(c.vencimento)}}</td><td><span class="badge">{{c.status}}</span></td><td><button class="mini" onclick="editConta('{{c.id}}','{{c.descricao|e}}','{{c.categoria|e}}','{{c.valor}}','{{c.vencimento}}','{{c.status}}','{{c.codigo_barras or ''}}')">Editar</button><a class="mini danger" href="{{ url_for('excluir_conta', id=c.id) }}" onclick="return confirm('Excluir?')">Excluir</a></td></tr>{% else %}<tr><td colspan="6">Nenhuma conta cadastrada.</td></tr>{% endfor %}</table></div></div>
+    </div>
+
+    <div class="tab" id="scanner">
+      <div class="panel"><h2>Escanear boleto</h2><form method="post" action="{{ url_for('salvar_scan') }}" enctype="multipart/form-data" class="grid-form"><input type="file" name="arquivo" accept="image/*,.pdf"><input name="descricao" placeholder="Descrição" required><input name="valor" type="number" step="0.01" placeholder="Valor" required><input name="vencimento" type="date"><button class="btn primary">Salvar boleto</button></form><div class="table-wrap"><table><tr><th>Arquivo</th><th>Descrição</th><th>Valor</th><th>Vencimento</th><th>Ações</th></tr>{% for s in scans %}<tr><td>{{s.arquivo}}</td><td>{{s.descricao}}</td><td>{{brl(s.valor)}}</td><td>{{fmt_date(s.vencimento)}}</td><td><a class="mini danger" href="{{ url_for('excluir_scan', id=s.id) }}">Excluir</a></td></tr>{% else %}<tr><td colspan="5">Nenhum boleto escaneado.</td></tr>{% endfor %}</table></div></div>
+    </div>
+
+    <div class="tab" id="relatorios">
+      <div class="cards"><div class="card"><span>Total geral</span><strong>{{brl(stats.total_geral)}}</strong></div><div class="card danger"><span>Em aberto</span><strong>{{brl(stats.em_aberto)}}</strong></div><div class="card success"><span>Quitado</span><strong>{{brl(stats.quitado)}}</strong></div><div class="card"><span>Atrasadas</span><strong>{{stats.atrasadas}}</strong></div></div>
+      <div class="panel"><h2>Relatórios</h2><p>Use o botão “Exportar CSV” no topo para baixar os dados.</p></div>
+    </div>
+
+    {% if session.role=='admin' %}
+    <div class="tab" id="acessos">
+      <div class="panel"><h2>Liberar acessos</h2><form method="post" action="{{ url_for('salvar_usuario') }}" class="grid-form"><input name="nome" placeholder="Nome" required><input name="usuario" placeholder="Usuário" required><input name="senha" type="password" placeholder="Senha" required><select name="role"><option value="usuario">Usuário</option><option value="admin">Administrador</option></select><select name="ativo"><option value="1">Liberado</option><option value="0">Bloqueado</option></select><button class="btn primary">Criar acesso</button></form><div class="table-wrap"><table><tr><th>Nome</th><th>Usuário</th><th>Tipo</th><th>Status</th><th>Ações</th></tr>{% for u in usuarios %}<tr><td>{{u.nome}}</td><td>{{u.usuario}}</td><td>{{u.role}}</td><td>{{'Liberado' if u.ativo else 'Bloqueado'}}</td><td><a class="mini" href="{{ url_for('toggle_usuario', id=u.id) }}">{{'Bloquear' if u.ativo else 'Liberar'}}</a><a class="mini danger" href="{{ url_for('excluir_usuario', id=u.id) }}" onclick="return confirm('Excluir usuário?')">Excluir</a></td></tr>{% endfor %}</table></div></div>
+    </div>
+    {% endif %}
+  </section>
+</main>
+
+<div class="modal" id="modalSalario"><form class="box" method="post" action="{{ url_for('salvar_salario') }}"><h2>Funcionário</h2><input type="hidden" name="id" id="sal_id"><input name="nome" id="sal_nome" placeholder="Nome" required><input name="cargo" id="sal_cargo" placeholder="Cargo"><input name="salario" id="sal_salario" type="number" step="0.01" placeholder="Salário" required><input name="data" id="sal_data" type="date"><select name="status" id="sal_status"><option>Pendente</option><option>Pago</option></select><div class="modal-actions"><button type="button" class="btn secondary" onclick="closeModal('modalSalario')">Cancelar</button><button class="btn primary">Salvar</button></div></form></div>
+<div class="modal" id="modalConta"><form class="box" method="post" action="{{ url_for('salvar_conta') }}"><h2>Conta / Boleto</h2><input type="hidden" name="id" id="cont_id"><input name="descricao" id="cont_descricao" placeholder="Descrição" required><select name="categoria" id="cont_categoria"><option>Energia</option><option>Água</option><option>Internet</option><option>Aluguel</option><option>Fornecedor</option><option>Boleto Bancário</option><option>Imposto</option><option>Outros</option></select><input name="valor" id="cont_valor" type="number" step="0.01" placeholder="Valor" required><input name="vencimento" id="cont_vencimento" type="date"><select name="status" id="cont_status"><option>Pendente</option><option>Pago</option><option>Atrasado</option></select><input name="codigo_barras" id="cont_codigo" placeholder="Código de barras"><div class="modal-actions"><button type="button" class="btn secondary" onclick="closeModal('modalConta')">Cancelar</button><button class="btn primary">Salvar</button></div></form></div>
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
