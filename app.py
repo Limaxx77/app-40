@@ -8,7 +8,10 @@ import io
 import psycopg2
 import psycopg2.extras
 
-DATABASE_URL = os.environ.get("DATABASE_URL")
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+
+if DATABASE_URL.startswith("DATABASE_URL="):
+    DATABASE_URL = DATABASE_URL.replace("DATABASE_URL=", "", 1).strip()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "troque-esta-chave-em-producao-40graus")
@@ -262,7 +265,8 @@ def salvar_usuario():
             datetime.now().isoformat()
         ))
         flash("Usuário criado com sucesso.", "success")
-    except:
+    except Exception as e:
+        print("Erro ao criar usuário:", e)
         flash("Esse usuário já existe.", "error")
 
     return redirect(url_for("index"))
@@ -420,7 +424,6 @@ def health():
     return "OK"
 
 
-# CRIA AS TABELAS TAMBÉM NO RENDER/GUNICORN
 try:
     init_db()
 except Exception as e:
